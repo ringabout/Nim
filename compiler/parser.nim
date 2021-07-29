@@ -908,8 +908,11 @@ proc parsePragma(p: var Parser): PNode =
       skipComment(p, a)
   optPar(p)
   if p.tok.tokType in {tkCurlyDotRi, tkCurlyRi}:
-    when defined(nimpretty):
-      if p.tok.tokType == tkCurlyRi: curlyRiWasPragma(p.em)
+    if p.tok.tokType == tkCurlyRi:
+      when defined(nimpretty):
+        curlyRiWasPragma(p.em)
+      else:
+        parMessage(p, warnDeprecated, "Using right curly to enclose pragmas is deprecated; use '.}'")
     getTok(p)
   else:
     parMessage(p, "expected '.}'")
