@@ -143,8 +143,8 @@ proc evalOp(m: TMagic, n, a, b, c: PNode; idgen: IdGenerator; g: ModuleGraph): P
     elif a.kind in {nkStrLit..nkTripleStrLit}:
       if a.typ.kind == tyString:
         result = newIntNodeT(toInt128(a.strVal.len), n, idgen, g)
-      elif a.typ.kind == tyCString:
-        result = newIntNodeT(toInt128(nimCStrLen(a.strVal)), n, idgen, g)
+      elif a.typ.kind == tyCstring:
+        result = newIntNodeT(toInt128(nimCStrLen(a.strVal.cstring)), n, idgen, g)
     else:
       result = newIntNodeT(toInt128(a.len), n, idgen, g)
   of mUnaryPlusI, mUnaryPlusF64: result = a # throw `+` away
@@ -578,7 +578,7 @@ proc getConstExpr(m: PSym, n: PNode; idgen: IdGenerator; g: ModuleGraph): PNode 
           result = newIntNodeT(firstOrd(g.config, n[1].typ), n, idgen, g)
       of mHigh:
         if skipTypes(n[1].typ, abstractVar+{tyUserTypeClassInst}).kind notin
-            {tySequence, tyString, tyCString, tyOpenArray, tyVarargs}:
+            {tySequence, tyString, tyCstring, tyOpenArray, tyVarargs}:
           if skipTypes(n[1].typ, abstractVarRange).kind in tyFloat..tyFloat64:
             result = newFloatNodeT(lastFloat(n[1].typ), n, g)
           else:
@@ -685,7 +685,8 @@ proc getConstExpr(m: PSym, n: PNode; idgen: IdGenerator; g: ModuleGraph): PNode 
   of nkDerefExpr, nkHiddenDeref:
     let a = getConstExpr(m, n[0], idgen, g)
     if a != nil and a.kind == nkNilLit:
-       localError(g.config, n.info, "nil dereference is not allowed")
+      result = nil
+      #localError(g.config, n.info, "nil dereference is not allowed")
   of nkCast:
     var a = getConstExpr(m, n[1], idgen, g)
     if a == nil: return

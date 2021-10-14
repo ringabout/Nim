@@ -65,7 +65,7 @@
 ##
 ## The following example demonstrates a simple chat server.
 ##
-## .. code-block::nim
+## .. code-block:: Nim
 ##
 ##   import std/[asyncnet, asyncdispatch]
 ##
@@ -650,6 +650,11 @@ proc bindAddr*(socket: AsyncSocket, port = Port(0), address = "") {.
     raiseOSError(osLastError())
   freeaddrinfo(aiList)
 
+proc hasDataBuffered*(s: AsyncSocket): bool {.since: (1, 5).} =
+  ## Determines whether an AsyncSocket has data buffered.
+  # xxx dedup with std/net
+  s.isBuffered and s.bufLen > 0 and s.currPos != s.bufLen
+
 when defined(posix):
 
   proc connectUnix*(socket: AsyncSocket, path: string): owned(Future[void]) =
@@ -731,6 +736,11 @@ proc close*(socket: AsyncSocket) =
         raiseSSLError()
 
 when defineSsl:
+  proc sslHandle*(self: AsyncSocket): SslPtr =
+    ## Retrieve the ssl pointer of `socket`.
+    ## Useful for interfacing with `openssl`.
+    self.sslHandle
+  
   proc wrapSocket*(ctx: SslContext, socket: AsyncSocket) =
     ## Wraps a socket in an SSL context. This function effectively turns
     ## `socket` into an SSL socket.

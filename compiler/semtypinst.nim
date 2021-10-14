@@ -51,7 +51,7 @@ proc searchInstTypes*(g: ModuleGraph; key: PType): PType =
       for j in 1..high(key.sons):
         # XXX sameType is not really correct for nested generics?
         if not compareTypes(inst[j], key[j],
-                            flags = {ExactGenericParams}):
+                            flags = {ExactGenericParams, PickyCAliases}):
           break matchType
 
       return inst
@@ -64,7 +64,7 @@ proc cacheTypeInst(c: PContext; inst: PType) =
   addToGenericCache(c, gt.sym, inst)
 
 type
-  LayeredIdTable* = ref object
+  LayeredIdTable* {.acyclic.} = ref object
     topLayer*: TIdTable
     nextLayer*: LayeredIdTable
 
@@ -378,7 +378,11 @@ proc handleGenericInvocation(cl: var TReplTypeVars, t: PType): PType =
   cl.typeMap = newTypeMapLayer(cl)
 
   for i in 1..<t.len:
-    var x = replaceTypeVarsT(cl, t[i])
+    var x = replaceTypeVarsT(cl):
+      if header[i].kind == tyGenericInst:
+        t[i]
+      else:
+        header[i]
     assert x.kind != tyGenericInvocation
     header[i] = x
     propagateToOwner(header, x)
@@ -544,7 +548,7 @@ proc replaceTypeVarsTAux(cl: var TReplTypeVars, t: PType): PType =
       result = n.typ.skipTypes({tyTypeDesc})
       # result = n.typ.base
     else:
-      if n.typ.kind != tyStatic:
+      if n.typ.kind != tyStatic and n.kind != nkType:
         # XXX: In the future, semConstExpr should
         # return tyStatic values to let anyone make
         # use of this knowledge. The patching here

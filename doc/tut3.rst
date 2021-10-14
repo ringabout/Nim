@@ -5,6 +5,8 @@ Nim Tutorial (Part III)
 :Author: Arne Döring
 :Version: |nimversion|
 
+.. default-role:: code
+.. include:: rstcommon.rst
 .. contents::
 
 

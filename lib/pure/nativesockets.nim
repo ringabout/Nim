@@ -14,12 +14,13 @@
 
 import os, options
 import std/private/since
+import std/strbasics
 
 
 when hostOS == "solaris":
   {.passl: "-lsocket -lnsl".}
 
-const useWinVersion = defined(Windows) or defined(nimdoc)
+const useWinVersion = defined(windows) or defined(nimdoc)
 
 when useWinVersion:
   import winlean
@@ -207,7 +208,7 @@ proc getProtoByName*(name: string): int {.since: (1, 3, 5).} =
     let protoent = winlean.getprotobyname(name.cstring)
   else:
     let protoent = posix.getprotobyname(name.cstring)
-  
+
   if protoent == nil:
     raise newException(OSError, "protocol not found")
 
@@ -280,7 +281,7 @@ proc getAddrInfo*(address: string, port: Port, domain: Domain = AF_INET,
                   protocol: Protocol = IPPROTO_TCP): ptr AddrInfo =
   ##
   ##
-  ## **Warning**: The resulting `ptr AddrInfo` must be freed using `freeAddrInfo`!
+  ## .. warning:: The resulting `ptr AddrInfo` must be freed using `freeAddrInfo`!
   var hints: AddrInfo
   result = nil
   hints.ai_family = toInt(domain)
@@ -438,7 +439,7 @@ proc getHostname*(): string {.tags: [ReadIOEffect].} =
   ## Returns the local hostname (not the FQDN)
   # https://tools.ietf.org/html/rfc1035#section-2.3.1
   # https://tools.ietf.org/html/rfc2181#section-11
-  const size = 64
+  const size = 256
   result = newString(size)
   when useWinVersion:
     let success = winlean.gethostname(result, size)
@@ -468,7 +469,7 @@ proc getAddrString*(sockAddr: ptr SockAddr): string =
   if sockAddr.sa_family.cint == nativeAfInet:
     result = $inet_ntoa(cast[ptr Sockaddr_in](sockAddr).sin_addr)
   elif sockAddr.sa_family.cint == nativeAfInet6:
-    let addrLen = when not useWinVersion: posix.INET6_ADDRSTRLEN
+    let addrLen = when not useWinVersion: posix.INET6_ADDRSTRLEN.int
                   else: 46 # it's actually 46 in both cases
     result = newString(addrLen)
     let addr6 = addr cast[ptr Sockaddr_in6](sockAddr).sin6_addr
@@ -477,7 +478,7 @@ proc getAddrString*(sockAddr: ptr SockAddr): string =
                          result.len.int32) == nil:
         raiseOSError(osLastError())
       if posix.IN6_IS_ADDR_V4MAPPED(addr6) != 0:
-        result = result.substr("::ffff:".len)
+        result.setSlice("::ffff:".len..<addrLen)
     else:
       if winlean.inet_ntop(winlean.AF_INET6, addr6, addr result[0],
                            result.len.int32) == nil:
@@ -492,10 +493,11 @@ proc getAddrString*(sockAddr: ptr SockAddr): string =
 proc getAddrString*(sockAddr: ptr SockAddr, strAddress: var string) =
   ## Stores in `strAddress` the string representation of the address inside
   ## `sockAddr`
-  ## 
+  ##
   ## **Note**
   ## * `strAddress` must be initialized to 46 in length.
-  assert(46 == len(strAddress),
+  const length = 46
+  assert(length == len(strAddress),
          "`strAddress` was not initialized correctly. 46 != `len(strAddress)`")
   if sockAddr.sa_family.cint == nativeAfInet:
     let addr4 = addr cast[ptr Sockaddr_in](sockAddr).sin_addr
@@ -514,7 +516,7 @@ proc getAddrString*(sockAddr: ptr SockAddr, strAddress: var string) =
                          strAddress.len.int32) == nil:
         raiseOSError(osLastError())
       if posix.IN6_IS_ADDR_V4MAPPED(addr6) != 0:
-        strAddress = strAddress.substr("::ffff:".len)
+        strAddress.setSlice("::ffff:".len..<length)
     else:
       if winlean.inet_ntop(winlean.AF_INET6, addr6, addr strAddress[0],
                            strAddress.len.int32) == nil:
@@ -748,6 +750,6 @@ proc accept*(fd: SocketHandle, inheritable = defined(nimInheritHandles)): (Socke
   else:
     return (sock, $inet_ntoa(sockAddress.sin_addr))
 
-when defined(Windows):
+when defined(windows):
   var wsa: WSAData
   if wsaStartup(0x0101'i16, addr wsa) != 0: raiseOSError(osLastError())

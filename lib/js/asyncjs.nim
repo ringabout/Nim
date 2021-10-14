@@ -70,7 +70,7 @@ type
     future*: T
   ## Wraps the return type of an asynchronous procedure.
 
-  PromiseJs* {.importcpp: "Promise".} = ref object
+  PromiseJs* {.importjs: "Promise".} = ref object
   ## A JavaScript Promise.
 
 
@@ -113,7 +113,7 @@ proc generateJsasync(arg: NimNode): NimNode =
 
   if len(code) > 0:
     var awaitFunction = quote:
-      proc await[T](f: Future[T]): T {.importcpp: "(await #)", used.}
+      proc await[T](f: Future[T]): T {.importjs: "(await #)", used.}
     result.body.add(awaitFunction)
 
     var resolve: NimNode
@@ -150,17 +150,13 @@ macro async*(arg: untyped): untyped =
   else:
     result = generateJsasync(arg)
 
-proc newPromise*[T](handler: proc(resolve: proc(response: T))): Future[T] {.importcpp: "(new Promise(#))".}
+proc newPromise*[T](handler: proc(resolve: proc(response: T))): Future[T] {.importjs: "(new Promise(#))".}
   ## A helper for wrapping callback-based functions
   ## into promises and async procedures.
 
-proc newPromise*(handler: proc(resolve: proc())): Future[void] {.importcpp: "(new Promise(#))".}
+proc newPromise*(handler: proc(resolve: proc())): Future[void] {.importjs: "(new Promise(#))".}
   ## A helper for wrapping callback-based functions
   ## into promises and async procedures.
-
-template typeOrVoid[T](a: T): type =
-  # xxx this is useful, make it public in std/typetraits in future work
-  T
 
 template maybeFuture(T): untyped =
   # avoids `Future[Future[T]]`
@@ -221,7 +217,8 @@ when defined(nimExperimentalAsyncjsThen):
             assert witness == 3
 
       template impl(call): untyped =
-        when typeOrVoid(call) is void:
+        # see D20210421T014713
+        when typeof(block: call) is void:
           var ret: Future[void]
         else:
           var ret = default(maybeFuture(typeof(call)))

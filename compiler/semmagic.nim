@@ -190,9 +190,10 @@ proc evalTypeTrait(c: PContext; traitCall: PNode, operand: PType, context: PSym)
     result = newIntNodeT(toInt128(operand.len), traitCall, c.idgen, c.graph)
   of "distinctBase":
     var arg = operand.skipTypes({tyGenericInst})
+    let rec = semConstExpr(c, traitCall[2]).intVal != 0
     while arg.kind == tyDistinct:
-      arg = arg.base
-      arg = arg.skipTypes(skippedTypes + {tyGenericInst})
+      arg = arg.base.skipTypes(skippedTypes + {tyGenericInst})
+      if not rec: break
     result = getTypeDescNode(c, arg, operand.owner, traitCall.info)
   else:
     localError(c.config, traitCall.info, "unknown trait: " & s)
@@ -215,10 +216,6 @@ proc semOrd(c: PContext, n: PNode): PNode =
   let parType = n[1].typ
   if isOrdinalType(parType, allowEnumWithHoles=true):
     discard
-  elif parType.kind == tySet:
-    let a = toInt64(firstOrd(c.config, parType))
-    let b = toInt64(lastOrd(c.config, parType))
-    result.typ = makeRangeType(c, a, b, n.info)
   else:
     localError(c.config, n.info, errOrdinalTypeExpected)
     result.typ = errorType(c)
@@ -229,14 +226,12 @@ proc semBindSym(c: PContext, n: PNode): PNode =
 
   let sl = semConstExpr(c, n[1])
   if sl.kind notin {nkStrLit, nkRStrLit, nkTripleStrLit}:
-    localError(c.config, n[1].info, errStringLiteralExpected)
-    return errorNode(c, n)
+    return localErrorNode(c, n, n[1].info, errStringLiteralExpected)
 
   let isMixin = semConstExpr(c, n[2])
   if isMixin.kind != nkIntLit or isMixin.intVal < 0 or
       isMixin.intVal > high(TSymChoiceRule).int:
-    localError(c.config, n[2].info, errConstExprExpected)
-    return errorNode(c, n)
+    return localErrorNode(c, n, n[2].info, errConstExprExpected)
 
   let id = newIdentNode(getIdent(c.cache, sl.strVal), n.info)
   let s = qualifiedLookUp(c, id, {checkUndeclared})
@@ -253,12 +248,10 @@ proc semBindSym(c: PContext, n: PNode): PNode =
 
 proc opBindSym(c: PContext, scope: PScope, n: PNode, isMixin: int, info: PNode): PNode =
   if n.kind notin {nkStrLit, nkRStrLit, nkTripleStrLit, nkIdent}:
-    localError(c.config, info.info, errStringOrIdentNodeExpected)
-    return errorNode(c, n)
+    return localErrorNode(c, n, info.info, errStringOrIdentNodeExpected)
 
   if isMixin < 0 or isMixin > high(TSymChoiceRule).int:
-    localError(c.config, info.info, errConstExprExpected)
-    return errorNode(c, n)
+    return localErrorNode(c, n, info.info, errConstExprExpected)
 
   let id = if n.kind == nkIdent: n
     else: newIdentNode(getIdent(c.cache, n.strVal), info.info)
@@ -461,6 +454,11 @@ proc semOld(c: PContext; n: PNode): PNode =
     localError(c.config, n[1].info, n[1].sym.name.s & " does not belong to " & getCurrOwner(c).name.s)
   result = n
 
+proc semPrivateAccess(c: PContext, n: PNode): PNode =
+  let t = n[1].typ[0].toObjectFromRefPtrGeneric
+  c.currentScope.allowPrivateAccess.add t.sym
+  result = newNodeIT(nkEmpty, n.info, getSysType(c.graph, n.info, tyVoid))
+
 proc magicsAfterOverloadResolution(c: PContext, n: PNode,
                                    flags: TExprFlags): PNode =
   ## This is the preferred code point to implement magics.
@@ -550,6 +548,12 @@ proc magicsAfterOverloadResolution(c: PContext, n: PNode,
     let op = getAttachedOp(c.graph, t, attachedDestructor)
     if op != nil:
       result[0] = newSymNode(op)
+  of mTrace:
+    result = n
+    let t = n[1].typ.skipTypes(abstractVar)
+    let op = getAttachedOp(c.graph, t, attachedTrace)
+    if op != nil:
+      result[0] = newSymNode(op)
   of mUnown:
     result = semUnown(c, n)
   of mExists, mForall:
@@ -577,5 +581,7 @@ proc magicsAfterOverloadResolution(c: PContext, n: PNode,
     if n[1].typ.skipTypes(abstractInst).kind in {tyUInt..tyUInt64}:
       n[0].sym.magic = mSubU
     result = n
+  of mPrivateAccess:
+    result = semPrivateAccess(c, n)
   else:
     result = n

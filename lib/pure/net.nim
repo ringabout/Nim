@@ -44,46 +44,44 @@
 ## After you create a socket with the `newSocket` procedure, you can easily
 ## connect it to a server running at a known hostname (or IP address) and port.
 ## To do so over TCP, use the example below.
-##
-## .. code-block:: Nim
-##   var socket = newSocket()
-##   socket.connect("google.com", Port(80))
-##
-## For SSL, use the following example (and make sure to compile with `-d:ssl`):
-##
-## .. code-block:: Nim
-##   var socket = newSocket()
-##   var ctx = newContext()
-##   wrapSocket(ctx, socket)
-##   socket.connect("google.com", Port(443))
-##
+
+runnableExamples("-r:off"):
+  let socket = newSocket()
+  socket.connect("google.com", Port(80))
+
+## For SSL, use the following example:
+
+runnableExamples("-r:off -d:ssl"):
+  let socket = newSocket()
+  let ctx = newContext()
+  wrapSocket(ctx, socket)
+  socket.connect("google.com", Port(443))
+
 ## UDP is a connectionless protocol, so UDP sockets don't have to explicitly
 ## call the `connect <net.html#connect%2CSocket%2Cstring>`_ procedure. They can
 ## simply start sending data immediately.
-##
-## .. code-block:: Nim
-##   var socket = newSocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
-##   socket.sendTo("192.168.0.1", Port(27960), "status\n")
-##
+
+runnableExamples("-r:off"):
+  let socket = newSocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+  socket.sendTo("192.168.0.1", Port(27960), "status\n")
+
 ## Creating a server
 ## -----------------
 ##
 ## After you create a socket with the `newSocket` procedure, you can create a
 ## TCP server by calling the `bindAddr` and `listen` procedures.
-##
-## .. code-block:: Nim
-##   var socket = newSocket()
-##   socket.bindAddr(Port(1234))
-##   socket.listen()
-##
-## You can then begin accepting connections using the `accept` procedure.
-##
-## .. code-block:: Nim
-##   var client: Socket
-##   var address = ""
-##   while true:
-##     socket.acceptAddr(client, address)
-##     echo("Client connected from: ", address)
+
+runnableExamples("-r:off"):
+  let socket = newSocket()
+  socket.bindAddr(Port(1234))
+  socket.listen()
+
+  # You can then begin accepting connections using the `accept` procedure.
+  var client: Socket
+  var address = ""
+  while true:
+    socket.acceptAddr(client, address)
+    echo "Client connected from: ", address
 
 import std/private/since
 
@@ -92,7 +90,7 @@ import ssl_config
 export nativesockets.Port, nativesockets.`$`, nativesockets.`==`
 export Domain, SockType, Protocol
 
-const useWinVersion = defined(Windows) or defined(nimdoc)
+const useWinVersion = defined(windows) or defined(nimdoc)
 const defineSsl = defined(ssl) or defined(nimdoc)
 
 when useWinVersion:
@@ -200,7 +198,7 @@ when defined(nimHasStyleChecks):
 
 proc socketError*(socket: Socket, err: int = -1, async = false,
                   lastError = (-1).OSErrorCode,
-                  flags: set[SocketFlag] = {}): void {.gcsafe.}
+                  flags: set[SocketFlag] = {}) {.gcsafe.}
 
 proc isDisconnectionError*(flags: set[SocketFlag],
     lastError: OSErrorCode): bool =
@@ -283,14 +281,20 @@ proc parseIPv4Address(addressStr: string): IpAddress =
     byteCount = 0
     currentByte: uint16 = 0
     separatorValid = false
+    leadingZero = false
 
   result = IpAddress(family: IpAddressFamily.IPv4)
 
   for i in 0 .. high(addressStr):
     if addressStr[i] in strutils.Digits: # Character is a number
+      if leadingZero:
+        raise newException(ValueError,
+          "Invalid IP address. Octal numbers are not allowed")
       currentByte = currentByte * 10 +
         cast[uint16](ord(addressStr[i]) - ord('0'))
-      if currentByte > 255'u16:
+      if currentByte == 0'u16:
+        leadingZero = true
+      elif currentByte > 255'u16:
         raise newException(ValueError,
           "Invalid IP Address. Value is out of range")
       separatorValid = true
@@ -302,6 +306,7 @@ proc parseIPv4Address(addressStr: string): IpAddress =
       currentByte = 0
       byteCount.inc
       separatorValid = false
+      leadingZero = false
     else:
       raise newException(ValueError,
         "Invalid IP Address. Address contains an invalid character")
@@ -390,10 +395,16 @@ proc parseIPv6Address(addressStr: string): IpAddress =
       result.address_v6[groupCount*2+1] = cast[uint8](currentShort and 0xFF)
       groupCount.inc()
   else: # Must parse IPv4 address
+    var leadingZero = false
     for i, c in addressStr[v4StartPos..high(addressStr)]:
       if c in strutils.Digits: # Character is a number
+        if leadingZero:
+          raise newException(ValueError,
+            "Invalid IP address. Octal numbers not allowed")
         currentShort = currentShort * 10 + cast[uint32](ord(c) - ord('0'))
-        if currentShort > 255'u32:
+        if currentShort == 0'u32:
+          leadingZero = true
+        elif currentShort > 255'u32:
           raise newException(ValueError,
             "Invalid IP Address. Value is out of range")
         separatorValid = true
@@ -404,6 +415,7 @@ proc parseIPv6Address(addressStr: string): IpAddress =
         currentShort = 0
         byteCount.inc()
         separatorValid = false
+        leadingZero = false
       else: # Invalid character
         raise newException(ValueError,
           "Invalid IP Address. Address contains an invalid character")
@@ -433,7 +445,12 @@ proc parseIPv6Address(addressStr: string): IpAddress =
 
 proc parseIpAddress*(addressStr: string): IpAddress =
   ## Parses an IP address
-  ## Raises ValueError on error
+  ##
+  ## Raises ValueError on error. 
+  ## 
+  ## For IPv4 addresses, only the strict form as
+  ## defined in RFC 6943 is considered valid, see
+  ## https://datatracker.ietf.org/doc/html/rfc6943#section-3.1.1.
   if addressStr.len == 0:
     raise newException(ValueError, "IP Address string is empty")
   if addressStr.contains(':'):
@@ -500,6 +517,11 @@ when defineSsl:
   SSL_load_error_strings()
   ERR_load_BIO_strings()
   OpenSSL_add_all_algorithms()
+
+  proc sslHandle*(self: Socket): SslPtr =
+    ## Retrieve the ssl pointer of `socket`.
+    ## Useful for interfacing with `openssl`.
+    self.sslHandle
 
   proc raiseSSLError*(s = "") =
     ## Raises a new SSL error.
@@ -582,10 +604,10 @@ when defineSsl:
     ##
     ## CA certificates will be loaded, in the following order, from:
     ##
-    ##  - caFile, caDir, parameters, if set
-    ##  - if `verifyMode` is set to `CVerifyPeerUseEnvVars`,
-    ##    the SSL_CERT_FILE and SSL_CERT_DIR environment variables are used
-    ##  - a set of files and directories from the `ssl_certs <ssl_certs.html>`_ file.
+    ## - caFile, caDir, parameters, if set
+    ## - if `verifyMode` is set to `CVerifyPeerUseEnvVars`,
+    ##   the SSL_CERT_FILE and SSL_CERT_DIR environment variables are used
+    ## - a set of files and directories from the `ssl_certs <ssl_certs.html>`_ file.
     ##
     ## The last two parameters specify the certificate file path and the key file
     ## path, a server socket will most likely not work without these.
@@ -644,7 +666,7 @@ when defineSsl:
       if verifyMode != CVerifyNone:
         # Use the caDir and caFile parameters if set
         if caDir != "" or caFile != "":
-          if newCTX.SSL_CTX_load_verify_locations(caFile, caDir) != VerifySuccess:
+          if newCTX.SSL_CTX_load_verify_locations(if caFile == "": nil else: caFile.cstring, if caDir == "": nil else: caDir.cstring) != VerifySuccess:
             raise newException(IOError, "Failed to load SSL/TLS CA certificate(s).")
 
         else:
@@ -685,17 +707,16 @@ when defineSsl:
     return ctx.getExtraInternal().clientGetPskFunc
 
   proc pskClientCallback(ssl: SslPtr; hint: cstring; identity: cstring;
-      max_identity_len: cuint; psk: ptr cuchar;
+      max_identity_len: cuint; psk: ptr uint8;
       max_psk_len: cuint): cuint {.cdecl.} =
     let ctx = SslContext(context: ssl.SSL_get_SSL_CTX)
     let hintString = if hint == nil: "" else: $hint
     let (identityString, pskString) = (ctx.clientGetPskFunc)(hintString)
-    if psk.len.cuint > max_psk_len:
+    if pskString.len.cuint > max_psk_len:
       return 0
     if identityString.len.cuint >= max_identity_len:
       return 0
-
-    copyMem(identity, identityString.cstring, pskString.len + 1) # with the last zero byte
+    copyMem(identity, identityString.cstring, identityString.len + 1) # with the last zero byte
     copyMem(psk, pskString.cstring, pskString.len)
 
     return pskString.len.cuint
@@ -712,11 +733,11 @@ when defineSsl:
   proc serverGetPskFunc*(ctx: SslContext): SslServerGetPskFunc =
     return ctx.getExtraInternal().serverGetPskFunc
 
-  proc pskServerCallback(ssl: SslCtx; identity: cstring; psk: ptr cuchar;
+  proc pskServerCallback(ssl: SslCtx; identity: cstring; psk: ptr uint8;
       max_psk_len: cint): cuint {.cdecl.} =
     let ctx = SslContext(context: ssl.SSL_get_SSL_CTX)
     let pskString = (ctx.serverGetPskFunc)($identity)
-    if psk.len.cint > max_psk_len:
+    if pskString.len.cint > max_psk_len:
       return 0
     copyMem(psk, pskString.cstring, pskString.len)
 
@@ -770,10 +791,11 @@ when defineSsl:
         raiseSSLError("No SSL certificate found.")
 
       const X509_CHECK_FLAG_ALWAYS_CHECK_SUBJECT = 0x1.cuint
-      const size = 1024
-      var peername: string = newString(size)
+      # https://www.openssl.org/docs/man1.1.1/man3/X509_check_host.html
       let match = certificate.X509_check_host(hostname.cstring, hostname.len.cint,
-        X509_CHECK_FLAG_ALWAYS_CHECK_SUBJECT, peername)
+        X509_CHECK_FLAG_ALWAYS_CHECK_SUBJECT, nil)
+      # https://www.openssl.org/docs/man1.1.1/man3/SSL_get_peer_certificate.html
+      X509_free(certificate)
       if match != 1:
         raiseSSLError("SSL Certificate check failed.")
 
@@ -955,7 +977,9 @@ proc bindAddr*(socket: Socket, port = Port(0), address = "") {.
   var aiList = getAddrInfo(realaddr, port, socket.domain)
   if bindAddr(socket.fd, aiList.ai_addr, aiList.ai_addrlen.SockLen) < 0'i32:
     freeaddrinfo(aiList)
-    raiseOSError(osLastError())
+    var address2: string
+    address2.addQuoted address
+    raiseOSError(osLastError(), "address: $# port: $#" % [address2, $port])
   freeaddrinfo(aiList)
 
 proc acceptAddr*(server: Socket, client: var owned(Socket), address: var string,
@@ -1228,12 +1252,10 @@ proc getPeerAddr*(socket: Socket): (string, Port) =
 proc setSockOpt*(socket: Socket, opt: SOBool, value: bool,
     level = SOL_SOCKET) {.tags: [WriteIOEffect].} =
   ## Sets option `opt` to a boolean value specified by `value`.
-  ##
-  ## .. code-block:: Nim
-  ##   var socket = newSocket()
-  ##   socket.setSockOpt(OptReusePort, true)
-  ##   socket.setSockOpt(OptNoDelay, true, level=IPPROTO_TCP.toInt)
-  ##
+  runnableExamples("-r:off"):
+    let socket = newSocket()
+    socket.setSockOpt(OptReusePort, true)
+    socket.setSockOpt(OptNoDelay, true, level = IPPROTO_TCP.cint)
   var valuei = cint(if value: 1 else: 0)
   setSockOptInt(socket.fd, cint(level), toCInt(opt), valuei)
 
@@ -1426,7 +1448,7 @@ proc recv*(socket: Socket, data: var string, size: int, timeout = -1,
            flags = {SocketFlag.SafeDisconn}): int =
   ## Higher-level version of `recv`.
   ##
-  ## Reads **up to** `size` bytes from `socket` into `buf`.
+  ## Reads **up to** `size` bytes from `socket` into `data`.
   ##
   ## For buffered sockets this function will attempt to read all the requested
   ## data. It will read this data in `BufferSize` chunks.
@@ -1443,9 +1465,7 @@ proc recv*(socket: Socket, data: var string, size: int, timeout = -1,
   ## A timeout may be specified in milliseconds, if enough data is not received
   ## within the time specified a TimeoutError exception will be raised.
   ##
-  ## **Note**: `data` must be initialised.
-  ##
-  ## **Warning**: Only the `SafeDisconn` flag is currently supported.
+  ## .. warning:: Only the `SafeDisconn` flag is currently supported.
   data.setLen(size)
   result =
     if timeout == -1:
@@ -1463,7 +1483,7 @@ proc recv*(socket: Socket, size: int, timeout = -1,
            flags = {SocketFlag.SafeDisconn}): string {.inline.} =
   ## Higher-level version of `recv` which returns a string.
   ##
-  ## Reads **up to** `size` bytes from `socket` into `buf`.
+  ## Reads **up to** `size` bytes from `socket` into the result.
   ##
   ## For buffered sockets this function will attempt to read all the requested
   ## data. It will read this data in `BufferSize` chunks.
@@ -1480,7 +1500,7 @@ proc recv*(socket: Socket, size: int, timeout = -1,
   ## within the time specified a TimeoutError exception will be raised.
   ##
   ##
-  ## **Warning**: Only the `SafeDisconn` flag is currently supported.
+  ## .. warning:: Only the `SafeDisconn` flag is currently supported.
   result = newString(size)
   discard recv(socket, result, size, timeout, flags)
 
@@ -1523,7 +1543,7 @@ proc readLine*(socket: Socket, line: var string, timeout = -1,
   ## The `maxLength` parameter determines the maximum amount of characters
   ## that can be read. The result is truncated after that.
   ##
-  ## **Warning**: Only the `SafeDisconn` flag is currently supported.
+  ## .. warning:: Only the `SafeDisconn` flag is currently supported.
 
   template addNLIfEmpty() =
     if line.len == 0:
@@ -1534,6 +1554,7 @@ proc readLine*(socket: Socket, line: var string, timeout = -1,
     if flags.isDisconnectionError(lastError):
       setLen(line, 0)
     socket.socketError(n, lastError = lastError, flags = flags)
+    return
 
   var waited: Duration
 
@@ -1579,7 +1600,7 @@ proc recvLine*(socket: Socket, timeout = -1,
   ## The `maxLength` parameter determines the maximum amount of characters
   ## that can be read. The result is truncated after that.
   ##
-  ## **Warning**: Only the `SafeDisconn` flag is currently supported.
+  ## .. warning:: Only the `SafeDisconn` flag is currently supported.
   result = ""
   readLine(socket, result, timeout, flags, maxLength)
 
@@ -1592,10 +1613,10 @@ proc recvFrom*(socket: Socket, data: var string, length: int,
   ## If an error occurs an OSError exception will be raised. Otherwise the return
   ## value will be the length of data received.
   ##
-  ## **Warning:** This function does not yet have a buffered implementation,
-  ## so when `socket` is buffered the non-buffered implementation will be
-  ## used. Therefore if `socket` contains something in its buffer this
-  ## function will make no effort to return it.
+  ## .. warning:: This function does not yet have a buffered implementation,
+  ##   so when `socket` is buffered the non-buffered implementation will be
+  ##   used. Therefore if `socket` contains something in its buffer this
+  ##   function will make no effort to return it.
   template adaptRecvFromToDomain(domain: Domain) =
     var addrLen = sizeof(sockAddress).SockLen
     result = recvfrom(socket.fd, cstring(data), length.cint, flags.cint,
@@ -2021,10 +2042,8 @@ proc getPrimaryIPAddr*(dest = parseIpAddress("8.8.8.8")): IpAddress =
   ##
   ## Supports IPv4 and v6.
   ## Raises OSError if external networking is not set up.
-  ##
-  ## .. code-block:: Nim
-  ##   echo $getPrimaryIPAddr()  # "192.168.1.2"
-
+  runnableExamples("-r:off"):
+    echo getPrimaryIPAddr() # "192.168.1.2"
   let socket =
     if dest.family == IpAddressFamily.IPv4:
       newSocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)

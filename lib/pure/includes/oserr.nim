@@ -39,7 +39,7 @@ proc osErrorMsg*(errorCode: OSErrorCode): string =
   result = ""
   when defined(nimscript):
     discard
-  elif defined(Windows):
+  elif defined(windows):
     if errorCode != OSErrorCode(0'i32):
       when useWinUnicode:
         var msgbuf: WideCString
@@ -80,8 +80,9 @@ proc newOSError*(
   e.msg = osErrorMsg(errorCode)
   if additionalInfo.len > 0:
     if e.msg.len > 0 and e.msg[^1] != '\n': e.msg.add '\n'
-    e.msg.add  "Additional info: "
-    e.msg.addQuoted additionalInfo
+    e.msg.add "Additional info: "
+    e.msg.add additionalInfo
+      # don't add trailing `.` etc, which negatively impacts "jump to file" in IDEs.
   if e.msg == "":
     e.msg = "unknown OS error"
   return e
@@ -102,11 +103,10 @@ proc osLastError*(): OSErrorCode {.sideEffect.} =
   ## OS call failed. The `OSErrorMsg` procedure can then be used to convert
   ## this code into a string.
   ##
-  ## **Warning**:
-  ## The behaviour of this procedure varies between Windows and POSIX systems.
-  ## On Windows some OS calls can reset the error code to `0` causing this
-  ## procedure to return `0`. It is therefore advised to call this procedure
-  ## immediately after an OS call fails. On POSIX systems this is not a problem.
+  ## .. warning:: The behaviour of this procedure varies between Windows and POSIX systems.
+  ##   On Windows some OS calls can reset the error code to `0` causing this
+  ##   procedure to return `0`. It is therefore advised to call this procedure
+  ##   immediately after an OS call fails. On POSIX systems this is not a problem.
   ##
   ## See also:
   ## * `osErrorMsg proc <#osErrorMsg,OSErrorCode>`_
