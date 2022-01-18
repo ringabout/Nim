@@ -27,3 +27,12 @@ macro test(e: varargs[untyped]): untyped =
 
 echo test(a)
 echo test(fake=90, arguments=80, also="false", possible=true)
+
+
+# bug #19332
+
+proc thing(a: varargs[string], b: varargs[int]) = 
+  doAssert a == ["a"]
+  doAssert b == [0]
+
+thing("a", 0)

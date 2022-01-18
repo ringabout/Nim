@@ -2489,7 +2489,7 @@ proc matchesAux(c: PContext, n, nOrig: PNode, m: var TCandidate, marker: var Int
           if m.baseTypeMatch:
             assert formal.typ.kind == tyVarargs
             #assert(container == nil)
-            if container.isNil:
+            if container.isNil or container.typ[1] != arg.typ:
               container = newNodeIT(nkBracket, n[a].info, arrayConstr(c, arg))
               container.typ.flags.incl tfVarargs
             else:
