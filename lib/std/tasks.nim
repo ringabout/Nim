@@ -62,6 +62,7 @@ type
     callback: proc (args: pointer) {.nimcall, gcsafe.}
     args: pointer
     destroy: proc (args: pointer) {.nimcall, gcsafe.}
+    argsBuffer*: array[24, byte]
 
 
 proc `=copy`*(x: var Task, y: Task) {.error.}
@@ -73,10 +74,13 @@ proc `=destroy`*(t: var Task) {.inline, gcsafe.} =
       t.destroy(t.args)
     c_free(t.args)
 
-proc invoke*(task: Task) {.inline, gcsafe.} =
+proc invoke*(task: var Task) {.inline, gcsafe.} =
   ## Invokes the `task`.
   assert task.callback != nil
-  task.callback(task.args)
+  if task.args == nil and task.destroy != nil:
+    task.callback(addr task.argsBuffer)
+  else:
+    task.callback(task.args)
 
 template checkIsolate(scratchAssignList: seq[NimNode], procParam, scratchDotExpr: NimNode) =
   # block:
@@ -182,9 +186,13 @@ macro toTask*(e: typed{nkCall | nkInfix | nkPrefix | nkPostfix | nkCommand | nkC
                       )
                     )
 
+    let taskIdent = genSym(kind = nskTemp, ident = "task")
 
     let scratchObjPtrType = quote do:
-      cast[ptr `scratchObjType`](c_calloc(csize_t 1, csize_t sizeof(`scratchObjType`)))
+      when sizeof(`scratchObjType`) <= 24:
+        cast[ptr `scratchObjType`](`taskIdent`.argsBuffer.addr)
+      else:
+        cast[ptr `scratchObjType`](c_calloc(csize_t 1, csize_t sizeof(`scratchObjType`)))
 
     let scratchLetSection = newLetStmt(
       scratchIdent,
@@ -213,6 +221,7 @@ macro toTask*(e: typed{nkCall | nkInfix | nkPrefix | nkPostfix | nkCommand | nkC
         `=destroy`(@objTemp2[])
 
     result = quote do:
+      var `taskIdent`: Task
       `stmtList`
 
       proc `funcName`(args: pointer) {.gcsafe, nimcall.} =
@@ -223,7 +232,13 @@ macro toTask*(e: typed{nkCall | nkInfix | nkPrefix | nkPostfix | nkCommand | nkC
         let `objTemp2` = cast[ptr `scratchObjType`](args)
         `tempNode`
 
-      Task(callback: `funcName`, args: `scratchIdent`, destroy: `destroyName`)
+      `taskIdent`.callback = `funcName`
+      when sizeof(`scratchObjType`) <= 24:
+        `taskIdent`.args = nil
+      else:
+        `taskIdent`.args = `scratchIdent`
+      `taskIdent`.destroy = `destroyName`
+      `taskIdent`
   else:
     let funcCall = newCall(e[0])
     let funcName = genSym(nskProc, e[0].strVal)
@@ -242,7 +257,7 @@ runnableExamples("--gc:orc"):
     var num = 0
     proc hello(a: int) = inc num, a
 
-    let b = toTask hello(13)
+    var b = toTask hello(13)
     b.invoke()
     assert num == 13
     # A task can be invoked multiple times
@@ -262,11 +277,11 @@ runnableExamples("--gc:orc"):
 
     when false:
       # the parameters of call must be isolated.
-      let x = Runnable(data: 12)
-      let b = toTask hello(x) # error ----> expression cannot be isolated: x
+      var x = Runnable(data: 12)
+      var b = toTask hello(x) # error ----> expression cannot be isolated: x
       b.invoke()
 
-    let b = toTask(hello(Runnable(data: 12)))
+    var b = toTask(hello(Runnable(data: 12)))
     b.invoke()
     assert data == 14
     b.invoke()

@@ -11,7 +11,7 @@ block:
     s.add $x & y
 
   let literal = "Nim"
-  let t = toTask(521 + literal)
+  var t = toTask(521 + literal)
   t.invoke()
 
   doAssert s == "521Nim"
@@ -21,7 +21,7 @@ block:
   proc `!`(x: int) =
     s.add $x
 
-  let t = toTask !12
+  var t = toTask !12
   t.invoke()
 
   doAssert s == "12"
@@ -33,7 +33,7 @@ block:
     proc hello(x: static range[1 .. 5]) =
       called += x
 
-    let b = toTask hello(3)
+    var b = toTask hello(3)
     b.invoke()
     doAssert called == 3
     b.invoke()
@@ -44,7 +44,7 @@ block:
     proc hello(x: range[1 .. 5]) =
       called += x
 
-    let b = toTask hello(3)
+    var b = toTask hello(3)
     b.invoke()
     doAssert called == 3
     b.invoke()
@@ -55,7 +55,7 @@ block:
     proc hello(x: 1 .. 5) =
       called += x
 
-    let b = toTask hello(3)
+    var b = toTask hello(3)
     b.invoke()
     doAssert called == 3
     b.invoke()
@@ -71,7 +71,7 @@ block:
         temp.addInt a
 
     let x = @["1", "2", "3", "4"]
-    let b = toTask hello(x)
+    var b = toTask hello(x)
     b.invoke()
     doAssert temp == "1234"
     b.invoke()
@@ -87,7 +87,7 @@ block:
 
     let x = "!2"
 
-    let b = toTask hello(x)
+    var b = toTask hello(x)
     b.invoke()
     doAssert temp == x
 
@@ -98,7 +98,7 @@ block:
         temp.add a
 
     let x = "!2"
-    let b = toTask hello(x)
+    var b = toTask hello(x)
     b.invoke()
     doAssert temp == x
 
@@ -119,7 +119,7 @@ block:
           temp.add s
 
     let x = @["1", "2", "3", "4"]
-    let b = toTask hello(x)
+    var b = toTask hello(x)
     b.invoke()
     doAssert temp == "1234"
 
@@ -130,7 +130,7 @@ block:
         temp.add a
 
     let x = "!2"
-    let b = toTask hello(x)
+    var b = toTask hello(x)
     b.invoke()
     doAssert temp == x
 
@@ -153,7 +153,7 @@ block:
 
     let x = 12
     var y = @[1, 3, 1, 4, 5, x, 1]
-    let b = toTask hello(y, 12)
+    var b = toTask hello(y, 12)
     b.invoke()
 
     doAssert a1 == y
@@ -166,7 +166,7 @@ block:
       a1 = c
       a2 = a
     var x = 2
-    let b = toTask hello(@[1, 3, 1, 4, 5, x, 1], 12)
+    var b = toTask hello(@[1, 3, 1, 4, 5, x, 1], 12)
     b.invoke()
 
     doAssert a1 == @[1, 3, 1, 4, 5, x, 1]
@@ -179,7 +179,7 @@ block:
       a1 = c
       a2 = a
 
-    let b = toTask hello([1, 3, 1, 4, 5, 2, 1], 12)
+    var b = toTask hello([1, 3, 1, 4, 5, 2, 1], 12)
     b.invoke()
 
     doAssert a1 == [1, 3, 1, 4, 5, 2, 1]
@@ -192,7 +192,7 @@ block:
       a1 = c
       a2 = a
 
-    let b = toTask hello(@[1, 3, 1, 4, 5, 2, 1], 12)
+    var b = toTask hello(@[1, 3, 1, 4, 5, 2, 1], 12)
     b.invoke()
 
     doAssert a1 == @[1, 3, 1, 4, 5, 2, 1]
@@ -205,13 +205,13 @@ block:
       a1 = c
       a2 = a
 
-    let b = toTask hello(8, @[1, 3, 1, 4, 5, 2, 1])
+    var b = toTask hello(8, @[1, 3, 1, 4, 5, 2, 1])
     b.invoke()
 
     doAssert a1 == @[1, 3, 1, 4, 5, 2, 1]
     doAssert a2 == 8
 
-    let c = toTask 8.hello(@[1, 3, 1, 4, 5, 2, 1])
+    var c = toTask 8.hello(@[1, 3, 1, 4, 5, 2, 1])
     c.invoke()
 
     doAssert a1 == @[1, 3, 1, 4, 5, 2, 1]
@@ -224,7 +224,7 @@ block:
       a1 = @c
       a2 = a
 
-    let b = toTask hello(8, @[@[3], @[4], @[5], @[6], @[12], @[7]])
+    var b = toTask hello(8, @[@[3], @[4], @[5], @[6], @[12], @[7]])
     b.invoke()
 
     doAssert a1 ==  @[@[3], @[4], @[5], @[6], @[12], @[7]]
@@ -237,7 +237,7 @@ block:
       a1 = @c
       a2 = a
 
-    let b = toTask hello(8, @[3, 4, 5, 6, 12, 7])
+    var b = toTask hello(8, @[3, 4, 5, 6, 12, 7])
     b.invoke()
 
     doAssert a1 == @[3, 4, 5, 6, 12, 7]
@@ -250,7 +250,7 @@ block:
       a1 = @c
       a2 = a
 
-    let b = toTask hello(8, @[3, 4, 5, 6, 12, 7])
+    var b = toTask hello(8, @[3, 4, 5, 6, 12, 7])
     b.invoke()
 
     doAssert a1 == @[3, 4, 5, 6, 12, 7]
@@ -263,7 +263,7 @@ block:
       a1 = @c
       a2 = a
 
-    let b = toTask hello(8, [3, 4, 5, 6, 12, 7])
+    var b = toTask hello(8, [3, 4, 5, 6, 12, 7])
     b.invoke()
 
     doAssert a1 == @[3, 4, 5, 6, 12, 7]
@@ -277,7 +277,7 @@ block:
       a2 = a
 
     let x = 12
-    let b = toTask hello(8, 3, 4, 5, 6, x, 7)
+    var b = toTask hello(8, 3, 4, 5, 6, x, 7)
     b.invoke()
 
     doAssert a1 == @[3, 4, 5, 6, 12, 7]
@@ -289,12 +289,12 @@ block:
     proc hello(x: ptr int) =
       x[] += 12
 
-    let b = toTask hello(addr x)
+    var b = toTask hello(addr x)
     b.invoke()
 
     doAssert x == 24
 
-    let c = toTask x.addr.hello
+    var c = toTask x.addr.hello
     invoke(c)
 
     doAssert x == 36
@@ -308,7 +308,7 @@ block:
       x += a
       x += c.id
 
-    let b = toTask hello(8, Test(id: 12))
+    var b = toTask hello(8, Test(id: 12))
     b.invoke()
 
     doAssert x == 20
@@ -323,7 +323,7 @@ block:
       x += a
       x += c.id
 
-    let b = toTask hello(8, Test(id: 12))
+    var b = toTask hello(8, Test(id: 12))
     b.invoke()
     doAssert x == 20
 
@@ -334,7 +334,7 @@ block:
       for i in c:
         x += i
 
-    let b = toTask hello(8, @[3, 4, 5, 6, 12, 7])
+    var b = toTask hello(8, @[3, 4, 5, 6, 12, 7])
     b.invoke()
     doAssert x == 45
 
@@ -345,7 +345,7 @@ block:
       for i in c:
         x += i
 
-    let b = toTask hello(8, [3, 4, 5, 6, 12])
+    var b = toTask hello(8, [3, 4, 5, 6, 12])
     b.invoke()
     doAssert x == 38
 
@@ -358,7 +358,7 @@ block:
       cVal.add c
 
     var x = 1314
-    let b = toTask hello(x, "hello")
+    var b = toTask hello(x, "hello")
     b.invoke()
 
     doAssert aVal == x
@@ -369,7 +369,7 @@ block:
 
     proc hello(a: static string) =
       aVal.add a
-    let b = toTask hello("hello")
+    var b = toTask hello("hello")
     b.invoke()
 
     doAssert aVal == "hello"
@@ -381,7 +381,7 @@ block:
     proc hello(a: static int, c: static string) =
       aVal += a
       cVal.add c
-    let b = toTask hello(8, "hello")
+    var b = toTask hello(8, "hello")
     b.invoke()
 
     doAssert aVal == 8
@@ -395,7 +395,7 @@ block:
       aVal += a
       cVal += c
 
-    let b = toTask hello(c = 0, a = 8)
+    var b = toTask hello(c = 0, a = 8)
     b.invoke()
 
     doAssert aVal == 8
@@ -409,7 +409,7 @@ block:
       aVal += a
       cVal += c
 
-    let b = toTask hello(c = 0, a = 8)
+    var b = toTask hello(c = 0, a = 8)
     b.invoke()
 
     doAssert aVal == 8
@@ -423,7 +423,7 @@ block:
       aVal += a
       cVal += c
 
-    let b = toTask hello(0, 8)
+    var b = toTask hello(0, 8)
     b.invoke()
 
     doAssert aVal == 0
@@ -437,7 +437,7 @@ block:
 
     proc main() =
       var x = @["23456"]
-      let t = toTask hello(2233, x)
+      var t = toTask hello(2233, x)
       t.invoke()
 
       doAssert temp == """x=2233 y=@["23456"] d=134"""
@@ -455,7 +455,7 @@ block:
 
     proc main() =
       var x = @["23456"]
-      let t = toTask hello(2233, x)
+      var t = toTask hello(2233, x)
       t.invoke()
       t.invoke()
 
@@ -464,12 +464,12 @@ block:
     main()
 
     var x = @["4"]
-    let m = toTask hello(2233, x, 7)
+    var m = toTask hello(2233, x, 7)
     m.invoke()
 
     doAssert temp == """x=2233 y=@["23456"] d=134x=2233 y=@["23456"] d=134x=2233 y=@["4"] d=7"""
 
-    let n = toTask ok()
+    var n = toTask ok()
     n.invoke()
 
     doAssert temp == "ok"
@@ -480,7 +480,7 @@ block:
       proc hello() =
         inc called
 
-      let a = toTask hello()
+      var a = toTask hello()
       invoke(a)
 
     doAssert called == 1
@@ -489,8 +489,8 @@ block:
       proc hello(a: int) =
         inc called, a
 
-      let b = toTask hello(13)
-      let c = toTask hello(a = 14)
+      var b = toTask hello(13)
+      var c = toTask hello(a = 14)
       b.invoke()
       c.invoke()
 
@@ -500,7 +500,7 @@ block:
       proc hello(a: int, c: int) =
         inc called, a
 
-      let b = toTask hello(c = 0, a = 8)
+      var b = toTask hello(c = 0, a = 8)
       b.invoke()
 
     doAssert called == 36
