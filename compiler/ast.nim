@@ -1248,6 +1248,11 @@ when defined(useNodeIds):
 
 template newNodeImpl(info2) =
   result = PNode(kind: kind, info: info2)
+  case kind
+  of nkCharLit..nkTripleStrLit, nkSym, nkIdent:
+    discard
+  else:
+    result.sons = createSeq[PNode]()
   when false:
     # this would add overhead, so we skip it; it results in a small amount of leaked entries
     # for old PNode that gets re-allocated at the same address as a PNode that

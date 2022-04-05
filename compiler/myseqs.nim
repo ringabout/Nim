@@ -3,7 +3,7 @@ type
     len, cap: int
     data: ptr UncheckedArray[T]
   PointerSeq*[T] = object
-    p: ptr NimSeqPayload[T]
+    p*: ptr NimSeqPayload[T]
 
 proc supportsCopyMem(t: typedesc): bool {.magic: "TypeTrait".}
 
@@ -50,6 +50,7 @@ proc `=copy`*[T](a: var PointerSeq[T]; b: PointerSeq[T]) =
   if a.p == b.p: return
   `=destroy`(a)
   wasMoved(a)
+  a.p = cast[ptr NimSeqPayload[T]](alloc(sizeof(NimSeqPayload[T])))
   a.p.len = b.p.len
   a.p.cap = b.p.cap
   if b.p.data != nil:
@@ -72,7 +73,6 @@ proc `$`*[T](x: PointerSeq[T]): string =
   collectionToString(x, "@[", ", ", "]")
 
 proc add*[T](x: var PointerSeq[T]; y: sink T) =
-  echo "isNil: ", x.p == nil
   if x.p.len >= x.p.cap:
     x.p.cap = max(x.p.len + 1, x.p.cap * 2)
     x.p.data = cast[typeof(x.p.data)](realloc(x.p.data, x.p.cap * sizeof(T)))
