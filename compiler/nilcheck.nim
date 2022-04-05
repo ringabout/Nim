@@ -6,7 +6,7 @@
 #    See the file "copying.txt", included in this
 #    distribution, for details about the copyright.
 #
-
+import myseqs
 import ast, renderer, intsets, tables, msgs, options, lineinfos, strformat, idents, treetab, hashes
 import sequtils, strutils, sets
 

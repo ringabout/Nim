@@ -15,6 +15,8 @@ import
 when defined(nimPreviewSlimSystem):
   import std/assertions
 
+import myseqs
+
 when defined(useDfa):
   import dfa
 
@@ -1336,7 +1338,7 @@ proc setEffectsForProcType*(g: ModuleGraph; t: PType, n: PNode; s: PSym = nil) =
   if t.kind != tyProc or effects.kind != nkEffectList: return
   if n.kind != nkEmpty:
     internalAssert g.config, effects.len == 0
-    newSeq(effects.sons, effectListLen)
+    createSeq(effects.sons, effectListLen)
     let raisesSpec = effectSpec(n, wRaises)
     if not isNil(raisesSpec):
       effects[exceptionEffects] = raisesSpec
@@ -1362,7 +1364,7 @@ proc setEffectsForProcType*(g: ModuleGraph; t: PType, n: PNode; s: PSym = nil) =
       t.flags.incl tfNoSideEffect
 
 proc rawInitEffects(g: ModuleGraph; effects: PNode) =
-  newSeq(effects.sons, effectListLen)
+  createSeq(effects.sons, effectListLen)
   effects[exceptionEffects] = newNodeI(nkArgList, effects.info)
   effects[tagEffects] = newNodeI(nkArgList, effects.info)
   effects[requiresEffects] = g.emptyNode

@@ -146,8 +146,62 @@ iterator pairs*[T](a: PointerSeq[T]): tuple[key: int, val: T] {.inline.} =
 template `^^`(s, i: untyped): untyped =
   (when i is BackwardsIndex: s.len - int(i) else: int(i))
 
+when defined(nimSeqsV2):
+  template movingCopy(a, b) =
+    a = move(b)
+else:
+  template movingCopy(a, b) =
+    shallowCopy(a, b)
+
+template spliceImpl(s, a, L, b: untyped): untyped =
+  # make room for additional elements or cut:
+  var shift = b.len - max(0,L)  # ignore negative slice size
+  var newLen = s.len + shift
+  if shift > 0:
+    # enlarge:
+    setLen(s, newLen)
+    for i in countdown(newLen-1, a+b.len): movingCopy(s[i], s[i-shift])
+  else:
+    for i in countup(a+b.len, newLen-1): movingCopy(s[i], s[i-shift])
+    # cut down:
+    setLen(s, newLen)
+  # fill the hole:
+  for i in 0 ..< b.len: s[a+i] = b[i]
+
 proc `[]`*[T; U, V: Ordinal](s: PointerSeq[T], x: HSlice[U, V]): PointerSeq[T] =
   let a = s ^^ x.a
   let L = (s ^^ x.b) - a + 1
   createSeq(result, L)
   for i in 0 ..< L: result[i] = s[i + a]
+
+proc `[]=`*[T; U, V: Ordinal](s: var PointerSeq[T], x: HSlice[U, V], b: PointerSeq[T]) =
+  let a = s ^^ x.a
+  let L = (s ^^ x.b) - a + 1
+  if L == b.len:
+    for i in 0 ..< L: s[i+a] = b[i]
+  else:
+    spliceImpl(s, a, L, b)
+
+proc insert*[T](x: var PointerSeq[T], item: sink T, i = 0.Natural) {.noSideEffect.} =
+  ## Inserts `item` into `x` at position `i`.
+  ##
+  ## .. code-block:: Nim
+  ##  var i = @[1, 3, 5]
+  ##  i.insert(99, 0) # i <- @[99, 1, 3, 5]
+  {.noSideEffect.}:
+    template defaultImpl =
+      let xl = x.len
+      setLen(x, xl+1)
+      var j = xl-1
+      while j >= i:
+        movingCopy(x[j+1], x[j])
+        dec(j)
+    when nimvm:
+      defaultImpl()
+    else:
+      when defined(js):
+        var it : T
+        {.emit: "`x` = `x` || []; `x`.splice(`i`, 0, `it`);".}
+      else:
+        defaultImpl()
+    x[i] = item
