@@ -16,6 +16,8 @@ from strutils import toLowerAscii
 when defined(nimPreviewSlimSystem):
   import std/assertions
 
+import myseqs
+
 export int128
 
 type
@@ -758,7 +760,7 @@ type
   PIdObj* = ref TIdObj
 
   PNode* = ref TNode
-  TNodeSeq* = seq[PNode]
+  TNodeSeq* = PointerSeq[PNode]
   PType* = ref TType
   PSym* = ref TSym
   TNode*{.final, acyclic.} = object # on a 32bit machine, this takes 32 bytes
@@ -1276,7 +1278,7 @@ proc newNodeI*(kind: TNodeKind, info: TLineInfo, children: int): PNode =
   ## new node with line info, type, and children
   newNodeImpl(info)
   if children > 0:
-    newSeq(result.sons, children)
+    createSeq(result.sons, children)
   setIdMaybe()
 
 proc newNodeIT*(kind: TNodeKind, info: TLineInfo, typ: PType): PNode =
@@ -1289,19 +1291,19 @@ proc newTree*(kind: TNodeKind; children: varargs[PNode]): PNode =
   result = newNode(kind)
   if children.len > 0:
     result.info = children[0].info
-  result.sons = @children
+  result.sons = createSeq children
 
 proc newTreeI*(kind: TNodeKind; info: TLineInfo; children: varargs[PNode]): PNode =
   result = newNodeI(kind, info)
   if children.len > 0:
     result.info = children[0].info
-  result.sons = @children
+  result.sons = createSeq children
 
 proc newTreeIT*(kind: TNodeKind; info: TLineInfo; typ: PType; children: varargs[PNode]): PNode =
   result = newNodeIT(kind, info, typ)
   if children.len > 0:
     result.info = children[0].info
-  result.sons = @children
+  result.sons = createSeq children
 
 template previouslyInferred*(t: PType): PType =
   if t.sons.len > 1: t.lastSon else: nil
@@ -1364,7 +1366,7 @@ proc appendToModule*(m: PSym, n: PNode) =
   ## appended to the module after the sem pass
   if m.ast == nil:
     m.ast = newNode(nkStmtList)
-    m.ast.sons = @[n]
+    m.ast.sons = createSeq(n)
   else:
     assert m.ast.kind == nkStmtList
     m.ast.sons.add(n)
@@ -1389,7 +1391,7 @@ proc copyObjectSet*(dest: var TObjectSet, src: TObjectSet) =
   for i in 0..high(src.data): dest.data[i] = src.data[i]
 
 proc discardSons*(father: PNode) =
-  father.sons = @[]
+  father.sons = createSeq[PNode]()
 
 proc withInfo*(n: PNode, info: TLineInfo): PNode =
   n.info = info
@@ -1474,8 +1476,8 @@ proc newProcNode*(kind: TNodeKind, info: TLineInfo, body: PNode,
                  name, pattern, genericParams,
                  pragmas, exceptions: PNode): PNode =
   result = newNodeI(kind, info)
-  result.sons = @[name, pattern, genericParams, params,
-                  pragmas, exceptions, body]
+  result.sons = createSeq(name, pattern, genericParams, params,
+                  pragmas, exceptions, body)
 
 const
   UnspecifiedLockLevel* = TLockLevel(-1'i16)
