@@ -10,6 +10,7 @@
 ## This file implements the new evaluation engine for Nim code.
 ## An instruction is 1-3 int32s in memory, it is a register based VM.
 
+import myseqs
 
 import
   std/[strutils, tables, parseutils],
@@ -206,7 +207,7 @@ proc copyValue(src: PNode): PNode =
   of nkIdent: result.ident = src.ident
   of nkStrLit..nkTripleStrLit: result.strVal = src.strVal
   else:
-    newSeq(result.sons, src.len)
+    createSeq(result.sons, src.len)
     for i in 0..<src.len:
       result[i] = copyValue(src[i])
 
@@ -1392,7 +1393,7 @@ proc rawExecute(c: PCtx, start: int, tos: PStackFrame): TFullReg =
       let count = regs[instr2.regA].intVal.int
       regs[ra].node = newNodeI(nkBracket, c.debug[pc])
       regs[ra].node.typ = typ
-      newSeq(regs[ra].node.sons, count)
+      createSeq(regs[ra].node.sons, count)
       for i in 0..<count:
         regs[ra].node[i] = getNullValue(typ[0], c.debug[pc], c.config)
     of opcNewStr:

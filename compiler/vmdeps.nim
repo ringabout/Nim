@@ -13,6 +13,8 @@ from pathutils import AbsoluteFile
 when defined(nimPreviewSlimSystem):
   import std/syncio
 
+import myseqs
+
 proc opSlurp*(file: string, info: TLineInfo, module: PSym; conf: ConfigRef): string =
   try:
     var filename = parentDir(toFullPath(conf, info)) / file

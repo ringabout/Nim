@@ -29,6 +29,8 @@ import strutils except `%` # collides with ropes.`%`
 from ic / ic import ModuleBackendFlag
 import dynlib
 
+import myseqs
+
 when not declared(dynlib.libCandidates):
   proc libCandidates(s: string, dest: var seq[string]) =
     ## given a library name pattern `s` write possible library names to `dest`.

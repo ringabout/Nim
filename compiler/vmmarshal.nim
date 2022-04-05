@@ -9,6 +9,8 @@
 
 ## Implements marshaling for the VM.
 
+import myseqs
+
 import streams, json, intsets, tables, ast, astalgo, idents, types, msgs,
   options, lineinfos
 
@@ -211,7 +213,7 @@ proc loadAny(p: var JsonParser, t: PType,
     if p.kind != jsonObjectStart: raiseParseErr(p, "'{' expected for an object")
     next(p)
     result = newNode(nkObjConstr)
-    result.sons = @[newNode(nkEmpty)]
+    result.sons = createSeq(newNode(nkEmpty))
     while p.kind != jsonObjectEnd and p.kind != jsonEof:
       if p.kind != jsonString:
         raiseParseErr(p, "string expected for a field name")

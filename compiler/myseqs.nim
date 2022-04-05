@@ -118,14 +118,15 @@ proc `[]=`*[T](s: var PointerSeq[T]; i: BackwardsIndex; x: T) {.inline.} =
   `[]=`(s, s.len - int(i), x)
 
 proc setLen*[T](x: var PointerSeq[T], newlen: Natural) =
-  if newlen < x.p.len:
-    shrink(x, newlen)
-  elif newlen == x.p.len:
-    discard
-  else:
-    x.p.cap = newlen # todo max(resize(x.p.len), newlen)
-    x.p.len = newlen
-    x.p.data = cast[typeof(x.p.data)](realloc(x.p.data, x.p.cap * sizeof(T)))
+  {.noSideEffect.}: # todo
+    if newlen < x.p.len:
+      shrink(x, newlen)
+    elif newlen == x.p.len:
+      discard
+    else:
+      x.p.cap = newlen # todo max(resize(x.p.len), newlen)
+      x.p.len = newlen
+      x.p.data = cast[typeof(x.p.data)](realloc(x.p.data, x.p.cap * sizeof(T)))
 
 proc pop*[T](s: var PointerSeq[T]): T {.inline, noSideEffect.} =
   var L = s.len-1
@@ -182,6 +183,14 @@ proc `[]=`*[T; U, V: Ordinal](s: var PointerSeq[T], x: HSlice[U, V], b: PointerS
   else:
     spliceImpl(s, a, L, b)
 
+proc `[]=`*[T; U, V: Ordinal](s: var PointerSeq[T], x: HSlice[U, V], b: openArray[T]) =
+  let a = s ^^ x.a
+  let L = (s ^^ x.b) - a + 1
+  if L == b.len:
+    for i in 0 ..< L: s[i+a] = b[i]
+  else:
+    spliceImpl(s, a, L, b)
+
 proc insert*[T](x: var PointerSeq[T], item: sink T, i = 0.Natural) {.noSideEffect.} =
   ## Inserts `item` into `x` at position `i`.
   ##
@@ -220,3 +229,22 @@ proc del*[T](x: var PointerSeq[T], i: Natural) {.noSideEffect.} =
     let xl = x.len - 1
     movingCopy(x[i], x[xl])
     setLen(x, xl)
+
+proc delete*[T](x: var PointerSeq[T], i: Natural) {.noSideEffect.} =
+  when defined(nimStrictDelete):
+    if i > high(x):
+      # xxx this should call `raiseIndexError2(i, high(x))` after some refactoring
+      raise (ref IndexDefect)(msg: "index out of bounds: '" & $i & "' < '" & $x.len & "' failed")
+
+  template defaultImpl =
+    let xl = x.len
+    for j in i.int..xl-2: movingCopy(x[j], x[j+1])
+    setLen(x, xl-1)
+
+  when nimvm:
+    defaultImpl()
+  else:
+    when defined(js):
+      {.emit: "`x`.splice(`i`, 1);".}
+    else:
+      defaultImpl()
