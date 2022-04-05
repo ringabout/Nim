@@ -8,7 +8,7 @@
 #
 
 ## This module implements the symbol importing mechanism.
-
+import myseqs
 import
   intsets, ast, astalgo, msgs, options, idents, lookups,
   semdata, modulepaths, sigmatch, lineinfos, sets,

@@ -10,6 +10,8 @@
 # this module folds constants; used by semantic checking phase
 # and evaluation phase
 
+import myseqs
+
 import
   strutils, options, ast, trees, nimsets,
   platform, math, msgs, idents, renderer, types,

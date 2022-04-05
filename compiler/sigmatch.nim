@@ -10,6 +10,8 @@
 ## This module implements the signature matching for resolving
 ## the call to overloaded procs, generic procs and operators.
 
+import myseqs
+
 import
   intsets, ast, astalgo, semdata, types, msgs, renderer, lookups, semtypinst,
   magicsys, idents, lexer, options, parampatterns, strutils, trees,

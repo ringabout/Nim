@@ -8,7 +8,7 @@
 #
 
 # This module does the instantiation of generic types.
-
+import myseqs
 import ast, astalgo, msgs, types, magicsys, semdata, renderer, options,
   lineinfos, modulegraphs
 

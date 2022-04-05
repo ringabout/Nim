@@ -17,6 +17,8 @@ import
 when defined(nimPreviewSlimSystem):
   import std/assertions
 
+import myseqs
+
 from ic / ic import addCompilerProc
 
 const

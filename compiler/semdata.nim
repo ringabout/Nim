@@ -11,6 +11,8 @@
 
 import tables
 
+import myseqs
+
 when defined(nimPreviewSlimSystem):
   import std/assertions
 
@@ -449,7 +451,7 @@ proc newTypeWithSons*(c: PContext, kind: TTypeKind,
 
 proc makeStaticExpr*(c: PContext, n: PNode): PNode =
   result = newNodeI(nkStaticExpr, n.info)
-  result.sons = @[n]
+  result.sons = createSeq(n)
   result.typ = if n.typ != nil and n.typ.kind == tyStatic: n.typ
                else: newTypeWithSons(c, tyStatic, @[n.typ])
 

@@ -39,6 +39,8 @@ when defined(nimpretty):
 when defined(nimPreviewSlimSystem):
   import std/assertions
 
+import myseqs
+
 type
   Parser* = object            # A Parser object represents a file that
                               # is being parsed

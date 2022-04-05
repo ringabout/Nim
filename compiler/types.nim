@@ -13,6 +13,8 @@ import
   intsets, ast, astalgo, trees, msgs, strutils, platform, renderer, options,
   lineinfos, int128, modulegraphs, astmsgs
 
+import myseqs
+
 when defined(nimPreviewSlimSystem):
   import std/assertions
 

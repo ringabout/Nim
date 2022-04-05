@@ -1305,6 +1305,24 @@ proc newTreeIT*(kind: TNodeKind; info: TLineInfo; typ: PType; children: varargs[
     result.info = children[0].info
   result.sons = createSeq children
 
+proc newTree*(kind: TNodeKind; children: PointerSeq[PNode]): PNode =
+  result = newNode(kind)
+  if children.len > 0:
+    result.info = children[0].info
+  result.sons = children
+
+proc newTreeI*(kind: TNodeKind; info: TLineInfo; children: PointerSeq[PNode]): PNode =
+  result = newNodeI(kind, info)
+  if children.len > 0:
+    result.info = children[0].info
+  result.sons = children
+
+proc newTreeIT*(kind: TNodeKind; info: TLineInfo; typ: PType; children: PointerSeq[PNode]): PNode =
+  result = newNodeIT(kind, info, typ)
+  if children.len > 0:
+    result.info = children[0].info
+  result.sons = children
+
 template previouslyInferred*(t: PType): PType =
   if t.sons.len > 1: t.lastSon else: nil
 

@@ -78,7 +78,11 @@ proc add*[T](x: var PointerSeq[T]; y: sink T) =
   x.p.data[x.p.len] = y
   inc x.p.len
 
-proc `[]`*[T](x: PointerSeq[T]; i: Natural): lent T =
+proc `[]`*[T](x: PointerSeq[T]; i: Natural): T =
+  assert i < x.p.len
+  x.p.data[i]
+
+proc `[]`*[T](x: var PointerSeq[T]; i: Natural): var T =
   assert i < x.p.len
   x.p.data[i]
 
@@ -104,7 +108,10 @@ proc createSeqOfCap*[T](children: int): PointerSeq[T] =
   result.p.cap = children
   result.p.len = children
 
-proc `[]`*[T](s: var PointerSeq[T]; i: BackwardsIndex): T {.inline.} =
+proc `[]`*[T](s: PointerSeq[T]; i: BackwardsIndex): T {.inline.} =
+  `[]`(s, s.len - int(i))
+
+proc `[]`*[T](s: var PointerSeq[T]; i: BackwardsIndex): var T {.inline.} =
   `[]`(s, s.len - int(i))
 
 proc `[]=`*[T](s: var PointerSeq[T]; i: BackwardsIndex; x: T) {.inline.} =
@@ -128,3 +135,19 @@ proc pop*[T](s: var PointerSeq[T]): T {.inline, noSideEffect.} =
 proc len*[T](x: PointerSeq[T]): int {.inline.} =
   # todo x.p != nil ?
   x.p.len
+
+iterator pairs*[T](a: PointerSeq[T]): tuple[key: int, val: T] {.inline.} =
+  ## Iterates over each item of `a`. Yields `(index, a[index])` pairs.
+  var i = 0
+  while i < len(a):
+    yield (i, a[i])
+    inc(i)
+
+template `^^`(s, i: untyped): untyped =
+  (when i is BackwardsIndex: s.len - int(i) else: int(i))
+
+proc `[]`*[T; U, V: Ordinal](s: PointerSeq[T], x: HSlice[U, V]): PointerSeq[T] =
+  let a = s ^^ x.a
+  let L = (s ^^ x.b) - a + 1
+  createSeq(result, L)
+  for i in 0 ..< L: result[i] = s[i + a]
