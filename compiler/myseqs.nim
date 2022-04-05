@@ -72,6 +72,7 @@ proc `$`*[T](x: PointerSeq[T]): string =
   collectionToString(x, "@[", ", ", "]")
 
 proc add*[T](x: var PointerSeq[T]; y: sink T) =
+  echo "isNil: ", x.p == nil
   if x.p.len >= x.p.cap:
     x.p.cap = max(x.p.len + 1, x.p.cap * 2)
     x.p.data = cast[typeof(x.p.data)](realloc(x.p.data, x.p.cap * sizeof(T)))
@@ -92,7 +93,10 @@ proc `[]=`*[T](x: var PointerSeq[T]; i: Natural; y: sink T) =
 
 proc createSeq*[T](elems: varargs[T]): PointerSeq[T] =
   result.p = cast[ptr NimSeqPayload[T]](alloc(sizeof(NimSeqPayload[T])))
-  result.p.cap = elems.len
+  result.p.cap = if elems.len == 0:
+      4
+    else:
+      elems.len
   result.p.len = elems.len
   result.p.data = cast[typeof(result.p.data)](alloc(result.p.cap * sizeof(T)))
   for i in 0..<result.p.len: result.p.data[i] = elems[i]
