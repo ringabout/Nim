@@ -16,6 +16,7 @@ import
 when defined(nimPreviewSlimSystem):
   import std/assertions
 
+import myseqs
 
 proc genConv(n: PNode, d: PType, downcast: bool; conf: ConfigRef): PNode =
   var dest = skipTypes(d, abstractPtrs)

@@ -31,6 +31,8 @@ proc transformBody*(g: ModuleGraph; idgen: IdGenerator, prc: PSym, cache: bool):
 
 import closureiters, lambdalifting
 
+import myseqs
+
 type
   PTransCon = ref object # part of TContext; stackable
     mapping: TIdNodeTable     # mapping from symbols to nodes
@@ -58,13 +60,13 @@ proc newTransNode(a: PNode): PNode {.inline.} =
 proc newTransNode(kind: TNodeKind, info: TLineInfo,
                   sons: int): PNode {.inline.} =
   var x = newNodeI(kind, info)
-  newSeq(x.sons, sons)
+  createSeq(x.sons, sons)
   result = x
 
 proc newTransNode(kind: TNodeKind, n: PNode,
                   sons: int): PNode {.inline.} =
   var x = newNodeIT(kind, n.info, n.typ)
-  newSeq(x.sons, sons)
+  createSeq(x.sons, sons)
   x.typ = n.typ
 #  x.flags = n.flags
   result = x

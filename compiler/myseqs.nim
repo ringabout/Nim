@@ -205,3 +205,18 @@ proc insert*[T](x: var PointerSeq[T], item: sink T, i = 0.Natural) {.noSideEffec
       else:
         defaultImpl()
     x[i] = item
+
+proc high*[T](x: PointerSeq[T]): int =
+  x.len - 1
+
+proc add*[T](x: var PointerSeq[T], y: PointerSeq[T]) {.noSideEffect.} =
+  {.noSideEffect.}:
+    let xl = x.len
+    setLen(x, xl + y.len)
+    for i in 0..high(y): x[xl+i] = y[i]
+
+proc del*[T](x: var PointerSeq[T], i: Natural) {.noSideEffect.} =
+  {.noSideEffect.}: # todo
+    let xl = x.len - 1
+    movingCopy(x[i], x[xl])
+    setLen(x, xl)

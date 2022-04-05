@@ -136,6 +136,8 @@ import
 when defined(nimPreviewSlimSystem):
   import std/assertions
 
+import myseqs
+
 type
   Ctx = object
     g: ModuleGraph
@@ -405,7 +407,7 @@ proc hasYieldsInExpressions(n: PNode): bool =
 proc exprToStmtList(n: PNode): tuple[s, res: PNode] =
   assert(n.kind == nkStmtListExpr)
   result.s = newNodeI(nkStmtList, n.info)
-  result.s.sons = @[]
+  result.s.sons = createSeq[PNode]()
 
   var n = n
   while n.kind == nkStmtListExpr:
