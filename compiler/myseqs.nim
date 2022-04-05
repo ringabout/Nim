@@ -10,10 +10,10 @@ proc supportsCopyMem(t: typedesc): bool {.magic: "TypeTrait".}
 proc shrink*[T](x: var PointerSeq[T]; newLen: Natural) {.tags: [], raises: [].} =
   #sysAssert newLen <= x.len, "invalid newLen parameter for 'shrink'"
   when not supportsCopyMem(T):
-    for i in countdown(x.len - 1, newLen):
-      reset x[i]
+    for i in countdown(x.p.len - 1, newLen):
+      reset x.p.data[i]
   # XXX This is wrong for const seqs that were moved into 'x'!
-  cast[ptr NimSeqPayload[T]](addr x).len = newLen
+  x.p.len = newLen
 
 proc collectionToString[T](x: T, prefix, separator, suffix: string): string =
   result = prefix
@@ -99,11 +99,31 @@ proc createSeq*[T](x: var PointerSeq[T], children: int) =
   x.p.len = children
   x.p.data = cast[typeof(x.p.data)](alloc(x.p.cap * sizeof(T)))
 
+proc createSeqOfCap*[T](children: int): PointerSeq[T] =
+  result.p = cast[ptr NimSeqPayload[T]](alloc(sizeof(NimSeqPayload[T])))
+  result.p.cap = children
+  result.p.len = children
+
 proc `[]`*[T](s: var PointerSeq[T]; i: BackwardsIndex): T {.inline.} =
   `[]`(s, s.len - int(i))
 
 proc `[]=`*[T](s: var PointerSeq[T]; i: BackwardsIndex; x: T) {.inline.} =
   `[]=`(s, s.len - int(i), x)
+
+proc setLen*[T](x: var PointerSeq[T], newlen: Natural) =
+  if newlen < x.p.len:
+    shrink(x, newlen)
+  elif newlen == x.p.len:
+    discard
+  else:
+    x.p.cap = newlen # todo max(resize(x.p.len), newlen)
+    x.p.len = newlen
+    x.p.data = cast[typeof(x.p.data)](realloc(x.p.data, x.p.cap * sizeof(T)))
+
+proc pop*[T](s: var PointerSeq[T]): T {.inline, noSideEffect.} =
+  var L = s.len-1
+  result = move s.p.data[L]
+  shrink(s, L)
 
 proc len*[T](x: PointerSeq[T]): int {.inline.} =
   # todo x.p != nil ?

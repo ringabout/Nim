@@ -1748,18 +1748,18 @@ template copyNodeImpl(dst, src, processSonsStmt) =
 proc shallowCopy*(src: PNode): PNode =
   # does not copy its sons, but provides space for them:
   copyNodeImpl(result, src):
-    newSeq(result.sons, src.len)
+    setLen(result.sons, src.len)
 
 proc copyTree*(src: PNode): PNode =
   # copy a whole syntax tree; performs deep copying
   copyNodeImpl(result, src):
-    newSeq(result.sons, src.len)
+    createSeq(result.sons, src.len)
     for i in 0..<src.len:
       result[i] = copyTree(src[i])
 
 proc copyTreeWithoutNode*(src, skippedNode: PNode): PNode =
   copyNodeImpl(result, src):
-    result.sons = newSeqOfCap[PNode](src.len)
+    result.sons = createSeqOfCap[PNode](src.len)
     for n in src.sons:
       if n != skippedNode:
         result.sons.add copyTreeWithoutNode(n, skippedNode)

@@ -12,7 +12,9 @@
 import
   ast, wordrecg, idents
 
-proc cyclicTreeAux(n: PNode, visited: var seq[PNode]): bool =
+import myseqs
+
+proc cyclicTreeAux(n: PNode, visited: var PointerSeq[PNode]): bool =
   if n == nil: return
   for v in visited:
     if v == n: return true
@@ -23,7 +25,7 @@ proc cyclicTreeAux(n: PNode, visited: var seq[PNode]): bool =
     discard visited.pop()
 
 proc cyclicTree*(n: PNode): bool =
-  var visited: seq[PNode] = @[]
+  var visited: PointerSeq[PNode] = createSeq[PNode]()
   cyclicTreeAux(n, visited)
 
 proc sameFloatIgnoreNan(a, b: BiggestFloat): bool {.inline.} =
