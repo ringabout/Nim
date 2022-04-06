@@ -35,9 +35,12 @@ proc collectionToString[T](x: T, prefix, separator, suffix: string): string =
   result.add(suffix)
 
 proc `=destroy`*[T](x: var PointerSeq[T]) =
-  if x.p != nil and x.p.data != nil:
-    for i in 0..<x.p.len: `=destroy`(x.p.data[i])
-    dealloc(x.p.data)
+  if x.p != nil:
+    if x.p.data != nil:
+      for i in 0..<x.p.len:
+        `=destroy`(x.p.data[i])
+      dealloc(x.p.data)
+    dealloc(x.p)
 
 proc `=trace`[T](x: var PointerSeq[T]; env: pointer) =
   # `=trace` allows the cycle collector `--mm:orc`
