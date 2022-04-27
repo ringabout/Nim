@@ -446,6 +446,13 @@ proc semVarOrLet(c: PContext, n: PNode, symkind: TSymKind): PNode =
       typ = semTypeNode(c, a[^2], nil)
 
     var def: PNode = c.graph.emptyNode
+    if a[^1].kind == nkEmpty and symkind == skVar and a[^2].typ != nil and
+            a[^2].typ.skipTypes({tyGenericInst, tyAlias, tySink}).kind == tyObject:
+      var asgnExpr = newTree(nkObjConstr, newNodeIT(nkType, a[^2].info, a[^2].typ))
+      asgnExpr.typ = a[^2].typ
+      asgnExpr.sons.add defaultFieldsForTheUninitialized(a[^2].typ.skipTypes({tyGenericInst, tyAlias, tySink}).n)
+      a[^1] = asgnExpr
+
     if a[^1].kind != nkEmpty:
       def = semExprWithType(c, a[^1], {efAllowDestructor})
       if def.typ.kind == tyProc and def.kind == nkSym:

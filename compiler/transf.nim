@@ -17,6 +17,7 @@
 # * introduces method dispatchers
 # * performs lambda lifting for closure support
 # * transforms 'defer' into a 'try finally' statement
+# * generates default field values for objects and transforms object contructors
 
 import
   options, ast, astalgo, trees, msgs,
@@ -44,7 +45,7 @@ type
     module: PSym
     transCon: PTransCon      # top of a TransCon stack
     inlining: int            # > 0 if we are in inlining context (copy vars)
-    nestedProcs: int         # > 0 if we are in a nested proc
+    genResult: bool          # XXX
     contSyms, breakSyms: seq[PSym]  # to transform 'continue' and 'break'
     deferDetected, tooEarly: bool
     graph: ModuleGraph
@@ -153,6 +154,8 @@ proc freshVar(c: PTransf; v: PSym): PNode =
     incl(newVar.flags, sfFromGeneric)
     newVar.owner = owner
     result = newSymNode(newVar)
+
+proc defaultFieldsForTheUninitialized*(recNode: PNode): seq[PNode]
 
 proc transformVarSection(c: PTransf, v: PNode): PNode =
   result = newTransNode(v)
@@ -658,7 +661,7 @@ proc transformFor(c: PTransf, n: PNode): PNode =
 
   let body = transformBody(c.graph, iter, true)
   pushInfoContext(c.graph.config, n.info)
-  inc(c.inlining)
+  inc c.inlining
   stmtList.add(transform(c, body))
   #findWrongOwners(c, stmtList.pnode)
   dec(c.inlining)
@@ -882,6 +885,47 @@ proc hoistParamsUsedInDefault(c: PTransf, call, letSection, defExpr: PNode): PNo
       let hoisted = hoistParamsUsedInDefault(c, call, letSection, defExpr[i])
       if hoisted != nil: defExpr[i] = hoisted
 
+import nimsets
+proc caseBranchMatchesExpr(branch, matched: PNode): bool =
+  for i in 0 ..< branch.len-1:
+    if branch[i].kind == nkRange:
+      if overlap(branch[i], matched): return true
+    elif exprStructuralEquivalent(branch[i], matched):
+      return true
+
+proc pickCaseBranch(caseExpr, matched: PNode): int =
+  let endsWithElse = caseExpr[^1].kind == nkElse
+  for i in 1..<caseExpr.len - endsWithElse.int:
+    if caseExpr[i].caseBranchMatchesExpr(matched):
+      return i
+  if endsWithElse:
+    return caseExpr.len - 1
+
+proc defaultFieldsForTheUninitialized*(recNode: PNode): seq[PNode] =
+  case recNode.kind
+  of nkRecList:
+    for field in recNode:
+      result.add defaultFieldsForTheUninitialized(field)
+  of nkRecCase:
+    let discriminator = recNode[0]
+    var selectedBranch: int
+    let defaultValue = discriminator.sym.ast
+    if defaultValue == nil:
+      # None of the branches were explicitly selected by the user and no value
+      # was given to the discrimator. We can assume that it will be initialized
+      # to zero and this will select a particular branch as a result:
+      selectedBranch = recNode.pickCaseBranch newIntNode(nkIntLit#[c.graph]#, 0)
+    else: # Try to use default value
+      selectedBranch = recNode.pickCaseBranch defaultValue
+      result.add newTree(nkExprColonExpr, discriminator, defaultValue)
+    result.add defaultFieldsForTheUninitialized(recNode[selectedBranch][^1])
+  of nkSym:
+    let field = recNode.sym
+    if field.ast != nil: #Try to use default value
+      result.add newTree(nkExprColonExpr, recNode, field.ast)
+  else:
+    assert false
+
 proc transform(c: PTransf, n: PNode): PNode =
   when false:
     var oldDeferAnchor: PNode
@@ -890,6 +934,17 @@ proc transform(c: PTransf, n: PNode): PNode =
                   nkBlockStmt, nkBlockExpr}:
       oldDeferAnchor = c.deferAnchor
       c.deferAnchor = n
+  if c.genResult:
+    c.genResult = false
+    result = newNodeIT(nkStmtList, n.info, nil)
+    let toInit = c.getCurrOwner().ast[resultPos]
+    if toInit.typ != nil and toInit.typ.skipTypes({tyGenericInst, tyAlias, tySink}).kind == tyObject:
+      var asgnExpr = newTree(nkObjConstr, newNodeIT(nkType, toInit.info, toInit.typ))
+      asgnExpr.typ = toInit.typ
+      asgnExpr.sons.add defaultFieldsForTheUninitialized(toInit.typ.skipTypes({tyGenericInst, tyAlias, tySink}).n)
+      result.add transform(c, newTree(nkAsgn, toInit, asgnExpr))
+    result.add transform(c, n)
+    return result
   case n.kind
   of nkSym:
     result = transformSym(c, n)
@@ -1013,6 +1068,13 @@ proc transform(c: PTransf, n: PNode): PNode =
     return n
   of nkExceptBranch:
     result = transformExceptBranch(c, n)
+  of nkObjConstr:
+    result = n
+    if result.typ.skipTypes(abstractInst).kind == tyObject or
+       result.typ.skipTypes(abstractInst).kind == tyRef and result.typ.skipTypes(abstractInst)[0].kind == tyObject:
+      result.sons.add result[0].sons
+      result[0] = newNodeIT(nkType, result.info, result.typ)
+    result = transformSons(c, result)
   else:
     result = transformSons(c, n)
   when false:
@@ -1034,6 +1096,7 @@ proc processTransf(c: PTransf, n: PNode, owner: PSym): PNode =
   # nodes into an empty node.
   if nfTransf in n.flags: return n
   pushTransCon(c, newTransCon(owner))
+  c.genResult = c.getCurrOwner().kind in routineKinds and c.transCon.owner.ast.len > resultPos and c.transCon.owner.ast[resultPos] != nil
   result = transform(c, n)
   popTransCon(c)
   incl(result.flags, nfTransf)
