@@ -62,9 +62,6 @@ becomes an alias for `addr`.
 - Removed deprecated `` httpcore.`==` ``.
 - Removed deprecated `std/dom_extensions`.
 - Removed deprecated `std/posix.CMSG_SPACE` and `std/posix.CMSG_LEN` that takes wrong argument types.
-
-- Deprecated `selfExe` for Nimscript.
-
 - Lock levels are deprecated, now a noop.
 
 
