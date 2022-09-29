@@ -3,9 +3,9 @@ discard """
   cmd: '''nim check --hints:off $options $file'''
   nimoutFull: true
   nimout: '''
-tproc_mismatch.nim(32, 52) Error: type mismatch: got <proc (a: int, c: float){.cdecl, noSideEffect, gcsafe.}> but expected 'proc (a: int, c: float){.closure, noSideEffect.}'
+tproc_mismatch.nim(38, 52) Error: type mismatch: got <proc (a: int, c: float){.cdecl, noSideEffect, gcsafe.}> but expected 'proc (a: int, c: float){.closure, noSideEffect.}'
   Calling convention mismatch: got '{.cdecl.}', but expected '{.closure.}'.
-tproc_mismatch.nim(36, 6) Error: type mismatch: got <proc (){.inline, noSideEffect, gcsafe.}>
+tproc_mismatch.nim(42, 6) Error: type mismatch: got <proc (){.inline, noSideEffect, gcsafe.}>
 but expected one of:
 proc bar(a: proc ())
   first type mismatch at position: 1
